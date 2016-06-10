@@ -1,36 +1,72 @@
 <?php
 
 $api = "https://download.moodle.org/api/1.3/pluglist.php";
+$viewpluginpage = "https://moodle.org/plugins/view.php?id=";
+$queries = array(
+    'title' => '//div[@class="plugin-heading"]//h2[@class="title"]/a',
+    'maintainers' => '//div[@class="maintainedby"]/span[@           class="name"]',
+    'description' => '//div[@class="shortdescription"]',
+);
 $corebase = "https://download.moodle.org/download.php/direct";
-$localapi = __DIR__ . '/pluglist.json';
 $packagesfile = __DIR__ . '/packages.json';
 
 $skipcore = in_array('--skip-core', $argv);
 $addcorerequires = in_array('--add-core-requires', $argv);
 
-if (!file_exists($localapi)) {
-	$pluginlistjson = file_get_contents($api);
-	file_put_contents($localapi, $pluginlistjson);
-} else {
-	$pluginlistjson = file_get_contents($localapi);
+function cache_or_download($url)
+{
+    $cachefile = __DIR__.'/cache/'.basename($url);
+    if (!file_exists($cachefile)) {
+        echo "No $cachefile; downloading $url".PHP_EOL;
+        $data = file_get_contents($url);
+        file_put_contents($cachefile, $data);
+    } else {
+        echo "Using $cachefile for $url".PHP_EOL;
+        $data = file_get_contents($cachefile);
+    }
+    return $data;
 }
 
-if (!$pluginlist = json_decode($pluginlistjson)) {
+function scrape($html, $queries)
+{
+    $result = new stdClass();
+    @$doc = DOMDocument::loadHtml($html);
+    $xpath = new DOMXPath($doc);
+    foreach ($queries as $key => $query)
+    {
+        $result->$key = array();
+        $nodeList = $xpath->query($query);
+        for ($i = 0; $i < $nodeList->length; $i++)
+        {
+            $result->$key[] = $nodeList->item($i)->textContent;
+        }
+    }
+    return $result;
+}
+
+if (!$pluginlist = json_decode(cache_or_download($api))) {
 	die("Unable to read plugin list");
 }
 
 $repo = new stdClass();
 $repo->packages = [];
 
-foreach ($pluginlist->plugins as $key => $plugin) {
+foreach ($pluginlist->plugins as $plugin) {
   if (empty($plugin->component)) {
       // We can't do anything without a component
       continue;
   }
   list($plugintype, $pluginname) = explode('_', $plugin->component, 2);
+    $html = cache_or_download($viewpluginpage.$plugin->id);
+    $scraped = scrape($html, $queries);
 	$package = new stdClass();
 	$package->name = 'moodle-plugin-db/' . $plugin->component;
-	$package->description = $plugin->name;
+	$package->description = $scraped->description[0];
+    $package->authors = array();
+    foreach ($scraped->maintainers as $maintainer)
+    {
+        $package->authors[] = array("name" => $maintainer);
+    }
 	$packageversions = [];
 	foreach ($plugin->versions as $version) {
 		$versionpackage = clone($package);

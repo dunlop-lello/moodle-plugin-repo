@@ -33,7 +33,7 @@ This is very much a proof of concept, and it's still not clear to me if it's eve
 to be sorted out before something like this could be used sensibly.
 
 1. The version numbers aren't in the usual semantic versioning format usually used by composer, so you can install specific versions (also "*" for the latest works as expected) but the version ranges syntax doesn't really work.
-2. Author information isn't exposed by the plugin database API, so we can't attribute the plugins properly in the generated metadata.
+2. ~~Author information isn't exposed by the plugin database API, so we can't attribute the plugins properly in the generated metadata.~~ Now scraped from HTML
 3. Where a plugin has a Github repository which could be used by Composer, we're not using it. Worse, when a plugin has a composer.json file we're ignoring it.
 5. To install into an existing Moodle download (which is kind of the idea), you need to edit the composer.json file, which is a core Moodle file. Alternatively, you need to mess around with the COMPOSER environment variable to use a different filename.
 6. There's no actual dependency management, so you have to work out the relevant versions yourself. In theory, we could add requires for Moodle versions but, because the Moodle composer.json doesn't have a name or version, this would have to be added manually before running composer install otherwise you'd end up with a whole copy of Moodle in your vendor directory.
